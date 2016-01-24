@@ -7,7 +7,8 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "1.7.170"]
                  [org.clojure/core.async "0.2.374"
-                  :exclusions [org.clojure/tools.reader]]]
+                  :exclusions [org.clojure/tools.reader]]
+                 [cljsjs/pixi "3.0.7-0"]]
 
   :plugins [[lein-cljsbuild "1.1.2" :exclusions [[org.clojure/clojure]]]
             [lein-figwheel "0.5.0-4"]]
