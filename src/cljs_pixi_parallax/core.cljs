@@ -19,16 +19,19 @@
 
 (defonce app-state (atom {:text "Hello world!"}))
 
-(defn render! []
-  (js/requestAnimationFrame render!)
-  (let [{:keys [sprites]} @app-state
-        far-x (aget (:bg-far sprites) "tilePosition" "x")
-        mid-x (aget (:bg-mid sprites) "tilePosition" "x")]
-    (aset (:bg-far sprites) "tilePosition" "x"
-          (- far-x 0.128))
-    (aset (:bg-mid sprites) "tilePosition" "x"
-          (- mid-x 0.64))
-    (.render renderer container)))
+(defn new-renderer []
+  (let [count (:__figwheel_counter @app-state)]
+    (fn this []
+      (let [{:keys [sprites __figwheel_counter]} @app-state
+            far-x (aget (:bg-far sprites) "tilePosition" "x")
+            mid-x (aget (:bg-mid sprites) "tilePosition" "x")]
+        (when (= __figwheel_counter count)
+          (js/requestAnimationFrame this)
+          (aset (:bg-far sprites) "tilePosition" "x"
+                (- far-x 0.128))
+          (aset (:bg-mid sprites) "tilePosition" "x"
+                (- mid-x 0.64))
+          (.render renderer container))))))
 
 (defn completed-loading-resources!
   [loader resources]
@@ -43,7 +46,7 @@
     (set! (.-y bg-mid) 112)
     (swap! app-state assoc-in [:sprites] {:bg-far bg-far
                                           :bg-mid bg-mid})
-    (render!)))
+    ((new-renderer))))
 
 (defn load-resources! []
   (-> (js/PIXI.loaders.Loader.)
@@ -55,7 +58,5 @@
   (do (load-resources!)))
 
 (defn on-js-reload []
-  ;; optionally touch your app-state to force rerendering depending on
-  ;; your application
-  ;; (swap! app-state update-in [:__figwheel_counter] inc)
-)
+  (swap! app-state update-in [:__figwheel_counter] inc)
+  ((new-renderer)))
