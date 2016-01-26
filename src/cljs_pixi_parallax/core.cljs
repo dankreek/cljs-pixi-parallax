@@ -1,5 +1,7 @@
 (ns cljs-pixi-parallax.core
-  (:require [cljsjs.pixi]))
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [cljsjs.pixi]
+            [cljs.core.async :refer [<!] :as async]))
 
 (enable-console-print!)
 
@@ -34,7 +36,7 @@
           (.render renderer container))))))
 
 (defn completed-loading-resources!
-  [loader resources]
+  [resources]
   (println "Resources loaded!")
   (let [bg-far (js/PIXI.extras.TilingSprite.
                  (aget resources "bg-far" "texture") 544 320)
@@ -45,17 +47,23 @@
         (.addChild bg-mid))
     (set! (.-y bg-mid) 112)
     (swap! app-state assoc-in [:sprites] {:bg-far bg-far
-                                          :bg-mid bg-mid})
-    ((new-renderer))))
+                                          :bg-mid bg-mid})))
 
-(defn load-resources! []
+(defn load-resources!
+  [c]
   (-> (js/PIXI.loaders.Loader.)
       (.add "bg-far" "img/bg-far.png")
       (.add "bg-mid" "img/bg-mid.png")
-      (.load completed-loading-resources!)))
+      (.load (fn [loader resources]
+               (async/put! c resources)
+               (async/close! c)))))
 
 (defonce boot!
-  (do (load-resources!)))
+  (do (let [c (async/chan)]
+        (load-resources! c)
+        (go (let [resources (<! c)]
+              (completed-loading-resources! resources)
+              ((new-renderer)))))))
 
 (defn on-js-reload []
   (swap! app-state update-in [:__figwheel_counter] inc)
