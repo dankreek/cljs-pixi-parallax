@@ -20,20 +20,31 @@
         (assoc-in [:scroller :bg-far-tiling-x] (- bg-far-tiling-x 0.128))
         (assoc-in [:scroller :bg-mid-tiling-x] (- bg-mid-tiling-x 0.64)))))
 
+(defn apply-sprite-coordinates!
+  [{:keys [sprites scroller] :as state}]
+  (aset (:bg-far sprites) "tilePosition" "x"
+        (:bg-far-tiling-x scroller))
+  (aset (:bg-mid sprites) "tilePosition" "x"
+        (:bg-mid-tiling-x scroller))
+  (aset (:bg-mid sprites) "y"
+        (:bg-mid-y scroller))
+  state)
+
+(defn render!
+  [{:keys [renderer container] :as state}]
+  (.render renderer container)
+  state)
+
 (defn new-renderer []
   (let [count (:__figwheel_counter @app-state)]
     (fn this []
-      (let [{:keys [sprites renderer container scroller __figwheel_counter]}
-            (swap! app-state update-sprite-positions)]
-        (when (= __figwheel_counter count)
-          (js/requestAnimationFrame this)
-          (aset (:bg-far sprites) "tilePosition" "x"
-                (:bg-far-tiling-x scroller))
-          (aset (:bg-mid sprites) "tilePosition" "x"
-                (:bg-mid-tiling-x scroller))
-          (aset (:bg-mid sprites) "y"
-                (:bg-mid-y scroller))
-          (.render renderer container))))))
+      (when (= (:__figwheel_count @app-state) count)
+        (js/requestAnimationFrame this)
+        (swap! app-state
+               #(-> %
+                    update-sprite-positions
+                    apply-sprite-coordinates!
+                    render!))))))
 
 (defn load-resources!
   [c]
@@ -76,18 +87,16 @@
       :renderer (.autoDetectRenderer js/PIXI width height #js {:view canvas}))))
 
 (defonce boot!
-  (do
-    (let [c (async/chan)]
-      (load-resources! c)
-      (go (let [resources (<! c)]
-            (swap! app-state
-                   (fn [state]
-                     (-> state
-                         init-pixi
-                         (init-sprites resources)
-                         init-scroller))))
+  (go (let [c (async/chan)]
+        (load-resources! c)
+        (let [resources (<! c)]
+          (swap! app-state
+                 #(-> %
+                      init-pixi
+                      (init-sprites resources)
+                      init-scroller)))
         (add-sprites-to-container!)
-        ((new-renderer))))))
+        ((new-renderer)))))
 
 (defn on-js-reload []
   (swap! app-state update-in [:__figwheel_counter] inc)
