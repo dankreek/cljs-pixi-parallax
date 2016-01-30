@@ -22,19 +22,21 @@
 (defn render! []
   (js/requestAnimationFrame render!)
   (let [{:keys [sprites]} @app-state
-        far-x (.-x (:bg-far sprites))
-        mid-x (.-x (:bg-mid sprites))]
-    (aset (:bg-far sprites) "x"
+        far-x (aget (:bg-far sprites) "tilePosition" "x")
+        mid-x (aget (:bg-mid sprites) "tilePosition" "x")]
+    (aset (:bg-far sprites) "tilePosition" "x"
           (- far-x 0.128))
-    (aset (:bg-mid sprites) "x"
+    (aset (:bg-mid sprites) "tilePosition" "x"
           (- mid-x 0.64))
     (.render renderer container)))
 
 (defn completed-loading-resources!
   [loader resources]
   (println "Resources loaded!")
-  (let [bg-far (js/PIXI.Sprite. (aget resources "bg-far" "texture"))
-        bg-mid (js/PIXI.Sprite. (aget resources "bg-mid" "texture"))]
+  (let [bg-far (js/PIXI.extras.TilingSprite.
+                 (aget resources "bg-far" "texture") 544 320)
+        bg-mid (js/PIXI.extras.TilingSprite.
+                 (aget resources "bg-mid" "texture") 544 208)]
     (.addChild container bg-far)
     (.addChild container bg-mid)
     (set! (.-y bg-mid) 112)
