@@ -45,9 +45,14 @@
 (defonce app-state (atom {}))
 
 (defn update-sprite-positions
+  [{:keys [viewport-x] :as state}]
+  (-> state
+      (assoc-in [:scroller :children 0 :tile-pos-x] (* viewport-x -0.128))
+      (assoc-in [:scroller :children 1 :tile-pos-x] (* viewport-x -0.64))))
+
+(defn update-viewport-position
   [state]
-  (-> state (update-in [:scroller :children 0 :tile-pos-x] - 0.128)
-            (update-in [:scroller :children 1 :tile-pos-x] - 0.64)))
+  (update-in state [:viewport-x] inc))
 
 (defn render!
   [{:keys [renderer scroller] :as state}]
@@ -60,9 +65,9 @@
       (when (= (:__figwheel_count @app-state) count)
         (js/requestAnimationFrame this)
         (swap! app-state
-               #(-> %
-                    update-sprite-positions
-                    render!))))))
+               #(-> % update-viewport-position
+                      update-sprite-positions
+                      render!))))))
 
 (defn load-resources!
   [c]
@@ -76,6 +81,7 @@
 (defn init-scroller
   [state resources]
   (assoc state
+    :viewport-x 0
     :scroller (mk-container
                 [(mk-scroller-sprite
                    (aget resources "bg-far" "texture") 544 320 0 0)
