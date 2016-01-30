@@ -19,6 +19,17 @@
 
 (defonce app-state (atom {:text "Hello world!"}))
 
+(defn render! []
+  (js/requestAnimationFrame render!)
+  (let [{:keys [sprites]} @app-state
+        far-x (.-x (:bg-far sprites))
+        mid-x (.-x (:bg-mid sprites))]
+    (aset (:bg-far sprites) "x"
+          (- far-x 0.128))
+    (aset (:bg-mid sprites) "x"
+          (- mid-x 0.64))
+    (.render renderer container)))
+
 (defn completed-loading-resources!
   [loader resources]
   (println "Resources loaded!")
@@ -27,7 +38,9 @@
     (.addChild container bg-far)
     (.addChild container bg-mid)
     (set! (.-y bg-mid) 112)
-    (.render renderer container)))
+    (swap! app-state assoc-in [:sprites] {:bg-far bg-far
+                                          :bg-mid bg-mid})
+    (render!)))
 
 (defn load-resources! []
   (-> (js/PIXI.loaders.Loader.)
