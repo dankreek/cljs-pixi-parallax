@@ -36,7 +36,8 @@
       (.add "bg-mid" "img/bg-mid.png")
       (.load completed-loading-resources!)))
 
-(load-resources!)
+(defonce boot!
+  (do (load-resources!)))
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
