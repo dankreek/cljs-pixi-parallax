@@ -19,9 +19,30 @@
 
 (defonce app-state (atom {:text "Hello world!"}))
 
+(defn completed-loading-resources!
+  [loader resources]
+  (println "Resources loaded!")
+  (let [bg-far (js/PIXI.Sprite. (aget resources "bg-far" "texture"))
+        bg-mid (js/PIXI.Sprite. (aget resources "bg-mid" "texture"))]
+    (.addChild container bg-far)
+    (.addChild container bg-mid)
+    (set! (.-y bg-mid) 112)
+    (.render renderer container)))
+
+
+(defn load-resources! []
+  (-> (js/PIXI.loaders.Loader.)
+      (.add "bg-far" "img/bg-far.png")
+      (.add "bg-mid" "img/bg-mid.png")
+      (.load completed-loading-resources!)))
+
+(load-resources!)
 
 (defn on-js-reload []
   ;; optionally touch your app-state to force rerendering depending on
   ;; your application
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
 )
+
+
+
