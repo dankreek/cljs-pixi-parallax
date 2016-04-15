@@ -8,30 +8,52 @@
 
 (def canvas-id "game-canvas")
 
-;; define your app data so that it doesn't get over-written on reload
+(defprotocol Displayable
+  (get-obj [this]
+           "Applies all of the record's properties to the underlying Pixi.js object
+           and returns it."))
+
+(defrecord Container [pixi-obj children]
+  Displayable
+  (get-obj [_]
+    (let [obj-num-children (aget pixi-obj "children" "length")]
+      ;; If pixi-obj's child list size != children size, add all as new
+      ;; otherwise replace all
+      (if (not= obj-num-children (count children))
+        (do
+          (.removeChildren pixi-obj)
+          (doseq [child children]
+            (.addChild pixi-obj (get-obj child))))
+        (doseq [i (range obj-num-children)]
+          ;; This is super naive, oh well?
+          (.setChildIndex pixi-obj (get-obj (nth children i)) i)))
+      pixi-obj)))
+
+(defn mk-container [children]
+  (Container. (js/PIXI.Container.) children))
+
+(defrecord ScrollerSprite [pixi-obj texture width height tile-pos-x pos-y]
+  Displayable
+  (get-obj [_]
+    (aset pixi-obj "y" pos-y)
+    (aset pixi-obj "tilePosition" "x" tile-pos-x)
+    pixi-obj))
+
+(defn mk-scroller-sprite [texture width height tile-pos-x pos-y]
+  (let [sprite (js/PIXI.extras.TilingSprite. texture width height)]
+    (ScrollerSprite. sprite texture width height tile-pos-x pos-y)))
 
 (defonce app-state (atom {:text "Hello world!"}))
 
 (defn update-sprite-positions
-  [{:keys [scroller] :as state}]
-  (let [{:keys [bg-far-tiling-x bg-mid-tiling-x]} scroller]
-    (-> state
-        (assoc-in [:scroller :bg-far-tiling-x] (- bg-far-tiling-x 0.128))
-        (assoc-in [:scroller :bg-mid-tiling-x] (- bg-mid-tiling-x 0.64)))))
-
-(defn apply-sprite-coordinates!
-  [{:keys [sprites scroller] :as state}]
-  (aset (:bg-far sprites) "tilePosition" "x"
-        (:bg-far-tiling-x scroller))
-  (aset (:bg-mid sprites) "tilePosition" "x"
-        (:bg-mid-tiling-x scroller))
-  (aset (:bg-mid sprites) "y"
-        (:bg-mid-y scroller))
-  state)
+  [state]
+  (-> state
+      (update-in [:scroller :children 0 :tile-pos-x] - 0.128)
+      (update-in [:scroller :children 1 :tile-pos-x] - 0.64)))
 
 (defn render!
-  [{:keys [renderer container] :as state}]
-  (.render renderer container)
+  [{:keys [renderer scroller] :as state}]
+  (.render renderer (get-obj scroller))
   state)
 
 (defn new-renderer []
@@ -42,7 +64,6 @@
         (swap! app-state
                #(-> %
                     update-sprite-positions
-                    apply-sprite-coordinates!
                     render!))))))
 
 (defn load-resources!
@@ -54,26 +75,14 @@
                (async/put! c resources)
                (async/close! c)))))
 
-(defn add-sprites-to-container! []
-  (let [{:keys [container sprites]} @app-state]
-    (.addChild container (:bg-far sprites))
-    (.addChild container (:bg-mid sprites))))
-
 (defn init-scroller
-  [state]
-  (assoc state
-    :scroller {:bg-far-y 0
-               :bg-far-tiling-x 0
-               :bg-mid-y 112
-               :bg-mid-tiling-x 0}))
-
-(defn init-sprites
   [state resources]
-  (merge state
-         {:sprites {:bg-far (js/PIXI.extras.TilingSprite.
-                              (aget resources "bg-far" "texture") 544 320)
-                    :bg-mid (js/PIXI.extras.TilingSprite.
-                              (aget resources "bg-mid" "texture") 544 208)}}))
+  (assoc state
+    :scroller (mk-container
+                [(mk-scroller-sprite
+                   (aget resources "bg-far" "texture") 544 320 0 0)
+                 (mk-scroller-sprite
+                   (aget resources "bg-mid" "texture") 544 208 0 112)])))
 
 (defn init-pixi
   [state]
@@ -81,22 +90,19 @@
         width (.getAttribute canvas "width")
         height (.getAttribute canvas "height")]
     (assoc state
-      :container (js/PIXI.Container.)
       :renderer (.autoDetectRenderer js/PIXI width height #js {:view canvas}))))
 
 (defn init-app-state
   [state resources]
   (-> state
       init-pixi
-      (init-sprites resources)
-      init-scroller))
+      (init-scroller resources)))
 
 (defonce boot!
   (go (let [c (async/chan)]
         (load-resources! c)
         (let [resources (<! c)]
           (swap! app-state init-app-state resources)
-          (add-sprites-to-container!)
           ((new-renderer))))))
 
 (defn on-js-reload []
